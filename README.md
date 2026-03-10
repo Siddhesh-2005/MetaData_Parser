@@ -48,8 +48,6 @@ npm install
 
 ```bash
 cd backend
-npm start
-# or for auto-reload during development:
 npm run dev
 ```
 
