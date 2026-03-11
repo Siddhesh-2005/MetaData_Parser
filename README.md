@@ -4,6 +4,18 @@ A full-stack web application that parses PDF file path lists into structured JSO
 
 ---
 
+<img width="1912" height="911" alt="image" src="https://github.com/user-attachments/assets/a668acb9-f89d-462a-854f-71c76c4f38fe" />
+
+---
+
+<img width="1919" height="910" alt="image" src="https://github.com/user-attachments/assets/58c99d7b-1f6c-409a-9ab1-43f925f5850e" />
+
+---
+
+<img width="1919" height="908" alt="image" src="https://github.com/user-attachments/assets/682799dc-5dda-43ea-9c0a-19747e866452" />
+
+---
+
 ## Folder Structure
 
 ```
