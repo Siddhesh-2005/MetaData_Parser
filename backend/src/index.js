@@ -1,8 +1,8 @@
 // index.js — Express API server
 
-const express = require('express');
-const cors = require('cors');
-const { parseList } = require('./parser');
+import express from 'express';
+import cors from 'cors';
+import { parseList, buildSubjects } from '../utils/parser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,11 +26,23 @@ app.post('/papers/parse', (req, res) => {
     });
   }
 
-  const results = parseList(list);
+  const papers = parseList(list);
+  const subjects = buildSubjects(papers);
+  const invalidPapers = papers.filter(p => p && p.error);
+
+  if (invalidPapers.length > 0) {
+    console.warn(`\n[parse] Invalid filenames: ${invalidPapers.length}`);
+    invalidPapers.forEach((paper, idx) => {
+      console.warn(`[parse][invalid:${idx + 1}] ${paper.url || 'unknown input'} :: ${paper.error}`);
+    });
+    console.warn('[parse] End invalid filename list\n');
+  }
 
   return res.json({
-    count: results.length,
-    results,
+    count: papers.length,
+    invalid_count: invalidPapers.length,
+    papers,
+    subjects,
   });
 });
 

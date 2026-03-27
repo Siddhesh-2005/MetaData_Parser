@@ -11,6 +11,7 @@ export default function App() {
   const [dark, setDark] = useState(true);
   const [inputText, setInputText] = useState('');
   const [result, setResult] = useState(null);
+  const [outputView, setOutputView] = useState('papers');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fileName, setFileName] = useState(null);
@@ -65,13 +66,16 @@ export default function App() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = (type) => {
     if (!result) return;
-    const blob = new Blob([JSON.stringify(result.results, null, 2)], { type: 'application/json' });
+
+    const data = type === 'subjects' ? (result.subjects || []) : (result.papers || result.results || []);
+    const fileName = type === 'subjects' ? 'subjects.json' : 'papers.json';
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'parsed-pdfs.json';
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -85,8 +89,11 @@ export default function App() {
   };
 
   const lineCount    = inputText ? inputText.split('\n').filter(l => l.trim()).length : 0;
-  const errorCount   = result ? result.results.filter(r => r.error).length : 0;
-  const successCount = result ? result.results.filter(r => !r.error).length : 0;
+  const papers = result ? (result.papers || result.results || []) : [];
+  const subjects = result ? (result.subjects || []) : [];
+  const errorCount   = papers.filter(r => r.error).length;
+  const successCount = papers.filter(r => !r.error).length;
+  const outputData = outputView === 'subjects' ? subjects : papers;
 
   return (
     <div className="app-root" data-theme={dark ? 'dark' : 'light'}>
@@ -214,8 +221,17 @@ export default function App() {
                   {errorCount > 0 && (
                     <span className="badge badge-error">{errorCount} err</span>
                   )}
-                  <button className="btn-download" onClick={handleDownload}>
-                    ↓ Download JSON
+                  <button className="btn-download" onClick={() => setOutputView('papers')}>
+                    View Papers
+                  </button>
+                  <button className="btn-download" onClick={() => setOutputView('subjects')}>
+                    View Subjects
+                  </button>
+                  <button className="btn-download" onClick={() => handleDownload('papers')}>
+                    ↓ papers.json
+                  </button>
+                  <button className="btn-download" onClick={() => handleDownload('subjects')}>
+                    ↓ subjects.json
                   </button>
                 </div>
               )}
@@ -226,7 +242,7 @@ export default function App() {
                 <div className="empty-state">
                   <div className="empty-icon">{ }</div>
                   <div className="empty-text">Results will appear here after parsing</div>
-                  <div className="empty-hint">JSON output • one object per path</div>
+                  <div className="empty-hint">JSON output • papers and subjects</div>
                 </div>
               )}
               {loading && (
@@ -237,7 +253,7 @@ export default function App() {
               )}
               {result && (
                 <pre className="result-pre">
-                  {JSON.stringify(result.results, null, 2)}
+                  {JSON.stringify(outputData, null, 2)}
                 </pre>
               )}
             </div>
@@ -252,6 +268,7 @@ export default function App() {
               { label: 'Total Parsed',  val: result.count },
               { label: 'Valid',         val: successCount },
               { label: 'Errors',        val: errorCount },
+              { label: 'Subjects',      val: subjects.length },
               { label: 'Success Rate',  val: result.count ? `${Math.round((successCount / result.count) * 100)}%` : '—' },
             ].map(({ label, val }) => (
               <div key={label} className="stat-card">
