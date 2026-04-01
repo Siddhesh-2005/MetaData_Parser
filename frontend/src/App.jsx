@@ -69,8 +69,10 @@ export default function App() {
   const handleDownload = (type) => {
     if (!result) return;
 
-    const data = type === 'subjects' ? (result.subjects || []) : (result.papers || result.results || []);
-    const fileName = type === 'subjects' ? 'subjects.json' : 'papers.json';
+    const data = type === 'subjects'
+      ? (result.subject || result.subjects || [])
+      : (result.papers || result.results || []);
+    const fileName = type === 'subjects' ? 'subject.json' : 'papers.json';
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -90,7 +92,7 @@ export default function App() {
 
   const lineCount    = inputText ? inputText.split('\n').filter(l => l.trim()).length : 0;
   const papers = result ? (result.papers || result.results || []) : [];
-  const subjects = result ? (result.subjects || []) : [];
+  const subjects = result ? (result.subject || result.subjects || []) : [];
   const errorCount   = papers.filter(r => r.error).length;
   const successCount = papers.filter(r => !r.error).length;
   const outputData = outputView === 'subjects' ? subjects : papers;
@@ -231,7 +233,7 @@ export default function App() {
                     ↓ papers.json
                   </button>
                   <button className="btn-download" onClick={() => handleDownload('subjects')}>
-                    ↓ subjects.json
+                    ↓ subject.json
                   </button>
                 </div>
               )}
@@ -242,7 +244,7 @@ export default function App() {
                 <div className="empty-state">
                   <div className="empty-icon">{ }</div>
                   <div className="empty-text">Results will appear here after parsing</div>
-                  <div className="empty-hint">JSON output • papers and subjects</div>
+                  <div className="empty-hint">JSON output • papers and subject</div>
                 </div>
               )}
               {loading && (

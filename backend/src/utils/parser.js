@@ -1,5 +1,7 @@
 // parser.js — extracts metadata from a PDF filename path
 
+import { groqResponse } from './groq.js';
+
 const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 const DEGREE_TOKENS = new Set([
   'ba', 'bsc', 'bcom', 'bba', 'bca', 'btech', 'be', 'bed', 'b.ed',
@@ -33,6 +35,57 @@ function getFilenameTokens(rawPath) {
   const fname = rawPath.split('/').pop();
   if (!fname || !fname.endsWith('.pdf')) return null;
   return fname.slice(0, -4).split('-');
+}
+
+function normalizeSemester(value) {
+  const num = parseInt(String(value), 10);
+  return Number.isNaN(num) ? null : num;
+}
+
+function isGroqFallbackCandidate(record) {
+  if (!record || record.error) return false;
+
+  const semMatch = normalizeSemester(record.semester) === 0;
+  const yearMatch = Number(record.year) === 99999;
+  const branchMatch = String(record.branch || '').toLowerCase() === 'common';
+  const monthMatch = String(record.exam_month || '').toLowerCase() === 'annual';
+
+  // OR logic: any one default-like signal triggers fallback candidate selection.
+  return semMatch || yearMatch || branchMatch || monthMatch;
+}
+
+function mergeGroqFields(base, patch) {
+  if (!patch || typeof patch !== 'object') return base;
+
+  const merged = { ...base };
+
+  if (typeof patch.degree === 'string' && patch.degree.trim()) {
+    merged.degree = patch.degree.trim().toLowerCase();
+  }
+  if (typeof patch.branch === 'string' && patch.branch.trim()) {
+    merged.branch = patch.branch.trim();
+  }
+
+  const semester = normalizeSemester(patch.semester);
+  if (semester !== null) merged.semester = semester;
+
+  if (typeof patch.subject_slug === 'string' && patch.subject_slug.trim()) {
+    merged.subject_slug = patch.subject_slug.trim().toLowerCase();
+  }
+  if (typeof patch.subject_name === 'string' && patch.subject_name.trim()) {
+    merged.subject_name = patch.subject_name.trim();
+  }
+  if (typeof patch.subject_code === 'string' && patch.subject_code.trim()) {
+    merged.subject_code = patch.subject_code.trim().toLowerCase();
+  }
+  if (typeof patch.exam_month === 'string' && patch.exam_month.trim()) {
+    merged.exam_month = patch.exam_month.trim().toLowerCase();
+  }
+
+  const year = parseInt(String(patch.year), 10);
+  if (!Number.isNaN(year)) merged.year = year;
+
+  return merged;
 }
 
 function findSemIndex(tokens) {
@@ -203,16 +256,57 @@ export function parsePdfPath(rawPath) {
   };
 }
 
-export function parseList(listStr) {
+export async function parseList(listStr) {
   const lines = listStr
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean);
 
-  const expanded = [];
-  for (const line of lines) {
+  const parsedRecords = [];
+  const groqCandidates = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     const parsed = parsePdfPath(line);
-    const items = expandParsedRecord(line, parsed).filter(Boolean);
+    parsedRecords.push(parsed);
+
+    if (isGroqFallbackCandidate(parsed)) {
+      groqCandidates.push({
+        index,
+        filename: parsed.fname,
+        rawPath: parsed.url,
+      });
+    }
+  }
+
+  if (groqCandidates.length > 0) {
+    try {
+      console.log(groqCandidates.length)
+      const groqItems = await groqResponse(groqCandidates);
+      const byIndex = new Map();
+
+      for (const item of groqItems) {
+        if (!item || typeof item !== 'object') continue;
+        const idx = Number(item.index);
+        if (Number.isInteger(idx)) {
+          byIndex.set(idx, item);
+        }
+      }
+
+      for (const [idx, patch] of byIndex.entries()) {
+        if (!parsedRecords[idx] || parsedRecords[idx].error) continue;
+        parsedRecords[idx] = mergeGroqFields(parsedRecords[idx], patch);
+      }
+    } catch (error) {
+      console.warn(groqCandidates.length)
+      console.warn('[groq] Batch fallback failed, continuing with parser values');
+      console.warn(`[groq] ${error?.message || error}`);
+    }
+  }
+
+  const expanded = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const items = expandParsedRecord(lines[index], parsedRecords[index]).filter(Boolean);
     expanded.push(...items);
   }
 

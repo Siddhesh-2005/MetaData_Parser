@@ -1,8 +1,9 @@
 // index.js — Express API server
 
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { parseList, buildSubjects } from '../utils/parser.js';
+import { parseList, buildSubjects } from './utils/parser.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,7 +17,7 @@ app.get('/', (req, res) => {
 });
 
 // POST /papers/parse
-app.post('/papers/parse', (req, res) => {
+app.post('/papers/parse', async (req, res) => {
   const { list } = req.body;
 
   if (!list || typeof list !== 'string') {
@@ -26,7 +27,7 @@ app.post('/papers/parse', (req, res) => {
     });
   }
 
-  const papers = parseList(list);
+  const papers = await parseList(list);
   const subjects = buildSubjects(papers);
   const invalidPapers = papers.filter(p => p && p.error);
 
@@ -42,6 +43,7 @@ app.post('/papers/parse', (req, res) => {
     count: papers.length,
     invalid_count: invalidPapers.length,
     papers,
+    subject: subjects,
     subjects,
   });
 });
